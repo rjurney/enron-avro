@@ -61,8 +61,18 @@ This will take some time, as the data is loaded into many tables with relationsh
     | recipients      |
     +-----------------+
     11 rows in set (0.00 sec)
+
+As we can see, this data is highly structured.
     
-    mysql> 
+    mysql> select * from messages limit 1;
+    +-----------+----------------------------------------------+---------------------+-----------+----------+--------------------+
+    | messageid | smtpid                                       | messagedt           | messagetz | senderid | subject            |
+    +-----------+----------------------------------------------+---------------------+-----------+----------+--------------------+
+    |         1 | <2614099.1075839927264.JavaMail.evans@thyme> | 2001-10-31 05:23:56 | -0800 PST |        1 | Path 30 mitigation |
+    +-----------+----------------------------------------------+---------------------+-----------+----------+--------------------+
+    1 row in set (0.01 sec)
+    
+
 
 
 
