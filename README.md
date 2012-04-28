@@ -8,7 +8,7 @@ The Berkeley Enron Emails
 
 ### Introduction
 
-Email is a rich source of information for analysis by many means. During the investigation of the Enron scandal of 2001, 517,431 messages from 114 inboxes of key Enron executives were collected. These emails were published and have become a common dataset for academics to analyze document collections and social networks. Andrew Fiore and Jeff Heer at US Berkeley have cleaned this email set and provided it as a MySQL archive. 
+Email is a rich source of information for analysis by many means. During the investigation of the Enron scandal of 2001, 517,431 messages from 114 inboxes of key Enron executives were collected. These emails were published and have become a common dataset for academics to analyze document collections and social networks. Andrew Fiore and Jeff Heer at UC Berkeley have cleaned this email set and provided it as a MySQL archive. 
 
 In this project we will convert this MySQL database of Enron emails into Avro format for analysis on Hadoop with Pig.
 
@@ -72,13 +72,12 @@ As we can see, this data is highly structured.
     +-----------+----------------------------------------------+---------------------+-----------+----------+--------------------+
     1 row in set (0.01 sec)
     
-Querying a single email to return it as a document we might see in our inbox is complex.  And yet this is precisely the format that is most convenient for analysis.  This is the limitation of highly structured, relational data.
+Querying a single email to return it as a document we might see in our inbox is complex. And yet this is precisely the format that is most convenient for analysis. This is the limitation of highly structured, relational data. elect a single email as we might view it in raw format.
 
-    mysql> -- Select a single email as we might view it in raw format.
-    select m.smtpid as id, 
+    mysql> select m.smtpid as id, 
            m.messagedt as date, 
            s.email as sender,
-           (select group_concat(CONCAT(r.reciptype, ':', p.email) SEPARATOR ' ') from recipients r join people p ON r.personid=p.personid where r.messageid = 511) as to_cc_bcc,
+           (select group_concat(CONCAT(r.reciptype, ':', p.email) SEPARATOR ', ') from recipients r join people p ON r.personid=p.personid where r.messageid = 511) as to_cc_bcc,
            m.subject as subject, 
            SUBSTR(b.body, 1, 200) as body
                 from messages m 
@@ -87,7 +86,7 @@ Querying a single email to return it as a document we might see in our inbox is 
                 join bodies b 
                     on m.messageid=b.messageid 
                         where m.messageid=511;
-    
+                        
     +-----------------------------------------------+---------------------+----------------------+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+-------------------------------------+--------------------------------------------------------------------------------------------------------------+
     | id                                            | date                | sender               | to_cc_bcc                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | subject                             | body                                                                                                         |
     +-----------------------------------------------+---------------------+----------------------+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+-------------------------------------+--------------------------------------------------------------------------------------------------------------+
@@ -97,6 +96,12 @@ Querying a single email to return it as a document we might see in our inbox is 
     +-----------------------------------------------+---------------------+----------------------+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+-------------------------------------+--------------------------------------------------------------------------------------------------------------+
     1 row in set (0.04 sec)
     
+
+With our data in Avro format, we'll be able to more easily access email as documents to analyze both their structured and unstructured components with whatever tools we prefer.
+
+
+
+
 
 
 
