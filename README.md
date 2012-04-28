@@ -72,7 +72,31 @@ As we can see, this data is highly structured.
     +-----------+----------------------------------------------+---------------------+-----------+----------+--------------------+
     1 row in set (0.01 sec)
     
+Querying a single email to return it as a document we might see in our inbox is complex.  And yet this is precisely the format that is most convenient for analysis.  This is the limitation of highly structured, relational data.
 
+    mysql> -- Select a single email as we might view it in raw format.
+    select m.smtpid as id, 
+           m.messagedt as date, 
+           s.email as sender,
+           (select group_concat(CONCAT(r.reciptype, ':', p.email) SEPARATOR ' ') from recipients r join people p ON r.personid=p.personid where r.messageid = 511) as to_cc_bcc,
+           m.subject as subject, 
+           SUBSTR(b.body, 1, 200) as body
+                from messages m 
+                join people s
+                    on m.senderid=s.personid
+                join bodies b 
+                    on m.messageid=b.messageid 
+                        where m.messageid=511;
+    
+    +-----------------------------------------------+---------------------+----------------------+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+-------------------------------------+--------------------------------------------------------------------------------------------------------------+
+    | id                                            | date                | sender               | to_cc_bcc                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | subject                             | body                                                                                                         |
+    +-----------------------------------------------+---------------------+----------------------+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+-------------------------------------+--------------------------------------------------------------------------------------------------------------+
+    | <25772535.1075839951307.JavaMail.evans@thyme> | 2002-02-02 12:56:33 | pete.davis@enron.com | to:pete.davis@enron.com cc:albert.meyers@enron.com cc:bill.williams@enron.com cc:craig.dean@enron.com cc:geir.solberg@enron.com cc:john.anderson@enron.com cc:mark.guzman@enron.com cc:michael.mier@enron.com cc:pete.davis@enron.com cc:ryan.slinger@enron.com bcc:albert.meyers@enron.com bcc:bill.williams@enron.com bcc:craig.dean@enron.com bcc:geir.solberg@enron.com bcc:john.anderson@enron.com bcc:mark.guzman@enron.com bcc:michael.mier@enron.com bcc:pete.davis@enron.com bcc:ryan.slinger@enron.com | Schedule Crawler: HourAhead Failure | 
+
+    Start Date: 2/2/02; HourAhead hour: 11;  HourAhead schedule download failed. Manual intervention required. |
+    +-----------------------------------------------+---------------------+----------------------+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+-------------------------------------+--------------------------------------------------------------------------------------------------------------+
+    1 row in set (0.04 sec)
+    
 
 
 
