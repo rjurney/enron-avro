@@ -101,6 +101,78 @@ With our data in Avro format, we'll be able to more easily access email as docum
 
 ### Dumping MySQL
 
+We can run that same query to dump the results as TSV, or "Tab Separated Value." MySQL's mysql client allows us to dump a query as TSV using the -e and -B options. -e 
+
+    [bash]$ mysql -u root -B -e "select m.smtpid as id, m.messagedt as date, s.email as sender, (select group_concat(CONCAT(r.reciptype, ':', p.email) SEPARATOR ', ') from recipients r join people p ON r.personid=p.personid where r.messageid = 511) as to_cc_bcc, m.subject as subject, SUBSTR(b.body, 1, 200) as body from messages m join people s on m.senderid=s.personid join bodies b on m.messageid=b.messageid;" enron > dump.sql 
+
+We can now load our sql dump in Pig. I prefer to use several parameters when I use Pig in local mode. The '-l /tmp' option lets me put my pig logs in /tmp so they don't clutter my working directory. '-x local' tells Pig to run in local mode instead of Hadoop mode. '-v' enables verbose output, and '-w' enables warnings. These last two options are useful for debugging problems when working with a new dataset.
+
+    [bash]$ pig -l /tmp -x local -v -w
+    grunt> emails = LOAD 'dump.sql' AS (message_id:chararray, date:chararray, from:chararray, to_cc_bcc:chararray, subject:chararray, body:chararray);
+    grunt> illustrate emails
+    
+        -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+    | emails     | message_id:chararray                          | date:chararray      | from:chararray          | to_cc_bcc:chararray                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                | subject:chararray    | body:chararray                                                                                                                                                                                                 | 
+    -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+    |            | <28471049.1075863303407.JavaMail.evans@thyme> | 2001-08-09 06:51:37 | michael.tully@enron.com | to:pete.davis@enron.com, cc:albert.meyers@enron.com, cc:bill.williams@enron.com, cc:craig.dean@enron.com, cc:geir.solberg@enron.com, cc:john.anderson@enron.com, cc:mark.guzman@enron.com, cc:michael.mier@enron.com, cc:pete.davis@enron.com, cc:ryan.slinger@enron.com, bcc:albert.meyers@enron.com, bcc:bill.williams@enron.com, bcc:craig.dean@enron.com, bcc:geir.solberg@enron.com, bcc:john.anderson@enron.com, bcc:mark.guzman@enron.com, bcc:michael.mier@enron.com, bcc:pete.davis@enron.com, bcc:ryan.slinger@enron.com | File Restoration     | I have already asked Paul about this, but I wanted to send this as kind of a reminder.\nDavid Porter from Real Time would like the following files restored from Tape Backup:\n\nP:\\RealTime\\Increment\\Wind | 
+    -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+Now we've got our data in document format in Pig, with a schema. Lets save our data in Avro format to persist this schema. To do so, we need to register the jars that Avro needs, as well as Piggybank for the AvroStorage UDF itself. We'll also define a short form of the AvroStorage command, as the fully qualified name is java-long.
+
+    grunt> /* Piggybank */
+    grunt> register /me/pig/contrib/piggybank/java/piggybank.jar
+    grunt> 
+    grunt> /* Load Avro jars and define shortcut */
+    grunt> register /me/pig/build/ivy/lib/Pig/avro-1.5.3.jar
+    grunt> register /me/pig/build/ivy/lib/Pig/json-simple-1.1.jar
+    grunt> register /me/pig/build/ivy/lib/Pig/jackson-core-asl-1.7.3.jar
+    grunt> register /me/pig/build/ivy/lib/Pig/jackson-mapper-asl-1.7.3.jar
+    grunt> register /me/pig/build/ivy/lib/Pig/joda-time-1.6.jar
+    grunt> 
+    grunt> define AvroStorage org.apache.pig.piggybank.storage.avro.AvroStorage();
+    grunt> STORE emails INTO '/tmp/enron' USING AvroStorage();
+
+Pig generates as many segments as there are mappers. In this case, 0-6 or 7 mappers.
+
+    [bash]$ ls /tmp/enron/
+
+    part-m-00001.avro       part-m-00004.avro       
+    part-m-00002.avro       part-m-00005.avro       
+    part-m-00000.avro       part-m-00003.avro       part-m-00006.avro
+
+We can cat these Avro encoded files using a simple python utility I wrote, called [cat_avro](https://github.com/rjurney/Collecting-Data/blob/master/src/python/cat_avro). A less robust Ruby version of cat_avro is available [here](https://github.com/rjurney/Collecting-Data/blob/master/src/ruby/bin/cat_avro).
+
+The script uses the Python Avro library, and is pretty simple:
+
+    from avro import schema, datafile, io
+    
+    ...
+    
+    for record in df_reader:
+      if i > 20:
+        break
+      i += 1
+      if field_id:
+        pp.pprint(record[field_id])
+      else:
+        pp.pprint(record)
+
+    [bash]$ cat_avro /tmp/enron/part-m-00001.avro
+    
+    ...
+    
+    {u'body': u'Please use contract .2774,  acitivity 852981, for the NYPA volumes we \\ndiscussed.\\n\\nAlso, let me know what the exact volume is after you do the allocation.',
+     u'date': u'2001-03-02 01:12:00',
+     u'from': u'chris.germany@enron.com',
+     u'message_id': u'<22603533.1075853865696.JavaMail.evans@thyme>',
+     u'subject': u'NYPA for Feb',
+     u'to_cc_bcc': u'to:pete.davis@enron.com, cc:albert.meyers@enron.com, cc:bill.williams@enron.com, cc:craig.dean@enron.com, cc:geir.solberg@enron.com, cc:john.anderson@enron.com, cc:mark.guzman@enron.com, cc:michael.mier@enron.com, cc:pete.davis@enron.com, cc:ryan.slinger@enron.com, bcc:albert.meyers@enron.com, bcc:bill.williams@enron.com, bcc:craig.dean@enron.com, bcc:geir.solberg@enron.com, bcc:john.anderson@enron.com, bcc:mark.guzman@enron.com, bcc:michael.mier@enron.com, bcc:pete.davis@enron.com, bcc:ryan.slinger@enron.com'}
+
+    Avro Schema: {"fields": [{"doc": "autogenerated from Pig Field Schema", "type": ["null", "string"], "name": "message_id"}, {"doc": "autogenerated from Pig Field Schema", "type": ["null", "string"], "name": "date"}, {"doc": "autogenerated from Pig Field Schema", "type": ["null", "string"], "name": "from"}, {"doc": "autogenerated from Pig Field Schema", "type": ["null", "string"], "name": "to_cc_bcc"}, {"doc": "autogenerated from Pig Field Schema", "type": ["null", "string"], "name": "subject"}, {"doc": "autogenerated from Pig Field Schema", "type": ["null", "string"], "name": "body"}], "type": "record", "name": "TUPLE_0"}
+
+cat_avro prints 20 records and then the schema of the records. Note that a schema is included with each file, so that it lives with the data. This is convenient. From now on we don't have to cast our data as we load it like we did before.
+
+    
 
 
 
