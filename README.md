@@ -99,8 +99,7 @@ Querying a single email to return it as a document we might see in our inbox is 
 
 With our data in Avro format, we'll be able to more easily access email as documents to analyze both their structured and unstructured components with whatever tools we prefer.
 
-
-
+### Dumping MySQL
 
 
 
