@@ -99,14 +99,14 @@ Querying a single email to return it as a document we might see in our inbox is 
 
 With our data in Avro format, we'll be able to more easily access email as documents to analyze both their structured and unstructured components with whatever tools we prefer.
 
-### Dumping MySQL
+### Dumping MySQL to Tab-Delimited 
 
-We can run that same query to dump the results as TSV, or "Tab Separated Value." MySQL's mysql client allows us to dump a query as TSV using the -e and -B options. -e executes a supplied query, and -B gives tab-delimited output.  For simplicity's sake, we'll dump this data in more than one query.
+Now that we're comfortable with our data, lets query it for export.
 
-Get the message and its sender:
+1) Get the message and its sender:
 
     mysql> select m.smtpid as message_id, m.messagedt as date, s.email as from_address, s.name as from_name, m.subject as subject, b.body as body from messages m join people s on m.senderid=s.personid join bodies b on m.messageid=b.messageid limit 10;
-    
+
     +----------------------+---------------------+----------------------+----------------------+----------------------+----------------------+
     | message_id           | date                | from_address         | from_name            | subject              | body                 |
     +----------------------+---------------------+----------------------+----------------------+----------------------+----------------------+
@@ -119,8 +119,8 @@ Get the message and its sender:
     | <29992592.1075839928 | 2001-10-30 21:03:49 | crcommunications@cai | CRCommunications     | CAISO NOTICE:  Data  | To Market Participan |
     | <20631685.1075839928 | 2001-07-02 18:00:58 | kalmeida@caiso.com   | Keoni" "Almeida      | FW: CAISO Notice: Up | The price is still 9 |
     +----------------------+---------------------+----------------------+----------------------+----------------------+----------------------+
-    
-Get the recipients:
+
+2) Get the recipients:
 
     select m.smtpid, r.reciptype, p.email, p.name from messages m join recipients r on m.messageid=r.messageid join people p on r.personid=p.personid limit 10;
 
@@ -138,6 +138,8 @@ Get the recipients:
     | <20631685.1075839928414.JavaMail.evans@thyme> | to        | bill.williams@enron.com      | Bill Williams III                   |
     +-----------------------------------------------+-----------+------------------------------+-------------------------------------+
 
+We can run that same query to dump the results as TSV, or "Tab Separated Values." MySQL's mysql client allows us to dump a query as TSV using the -e and -B options. -e executes a supplied query, and -B gives tab-delimited output.  For simplicity's sake, we'll dump this data in more than one query.
+
 Run these from the command line to perform the dumps.
 
     [bash]$ mysql -u root -B -e "select m.smtpid as message_id, m.messagedt as date, s.email as from_address, s.name as from_name, m.subject as subject, b.body as body from messages m join people s on m.senderid=s.personid join bodies b on m.messageid=b.messageid;" enron > enron_messages.tsv
@@ -145,7 +147,7 @@ Run these from the command line to perform the dumps.
     
     message_id	date	from_address	from_name	subject	body
     <2614099.1075839927264.JavaMail.evans@thyme>	2001-10-31 05:23:56	marketopshourahead@caiso.com	CAISO Market Operations - Hour Ahead	Path 30 mitigation	System Notification: At 0115 PST, WACM terminated request for coordinated\noperation controllable devices for Path 30 USF mitigation.
-<31442247.1075839927371.JavaMail.evans@thyme>	2001-10-31 04:04:37	marketopsrealtimebeep@caiso.com	CAISO Market Operations - Realtime/BEEP	Path 15	Internal path flows are now below limits.  BEEP has been returned to normal\nmode (unsplit operation) as of 0000 hours.  BEEP will dispatch as one zone.\nSent by Market Operations, inquiries please call the Real Time Desk.\n\n\nThe system conditions described in this communication are dynamic and\nsubject to change.  While the ISO has attempted to reflect the most current,\naccurate information available in preparing this notice, system conditions\nmay change suddenly with little or no notice.
+    <31442247.1075839927371.JavaMail.evans@thyme>	2001-10-31 04:04:37	marketopsrealtimebeep@caiso.com	CAISO Market Operations - Realtime/BEEP	Path 15	Internal path flows are now below limits.  BEEP has been returned to normal\nmode (unsplit operation) as of 0000 hours.  BEEP will dispatch as one zone.\nSent by Market Operations, inquiries please call the Real Time Desk.\n\n\nThe system conditions described in this communication are dynamic and\nsubject to change.  While the ISO has attempted to reflect the most current,\naccurate information available in preparing this notice, system conditions\nmay change suddenly with little or no notice.
     
     [bash]$ mysql -u root -B -e "select m.smtpid, r.reciptype, p.email, p.name from messages m join recipients r on m.messageid=r.messageid join people p on r.personid=p.personid" enron > enron_recipients.tsv
     [bash]$ head enron_recipients.tsv
