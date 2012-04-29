@@ -103,7 +103,7 @@ With our data in Avro format, we'll be able to more easily access email as docum
 
 We can run that same query to dump the results as TSV, or "Tab Separated Value." MySQL's mysql client allows us to dump a query as TSV using the -e and -B options. -e executes a supplied query, and -B gives tab-delimited output.  For simplicity's sake, we'll dump this data in more than one query.
 
-  * Get the message and its sender:
+Get the message and its sender:
 
     mysql> select m.smtpid as message_id, m.messagedt as date, s.email as from_address, s.name as from_name, m.subject as subject, b.body as body from messages m join people s on m.senderid=s.personid join bodies b on m.messageid=b.messageid limit 10;
     
@@ -120,7 +120,8 @@ We can run that same query to dump the results as TSV, or "Tab Separated Value."
     | <20631685.1075839928 | 2001-07-02 18:00:58 | kalmeida@caiso.com   | Keoni" "Almeida      | FW: CAISO Notice: Up | The price is still 9 |
     +----------------------+---------------------+----------------------+----------------------+----------------------+----------------------+
     
-  * Get the recipients:
+Get the recipients:
+
     select m.smtpid, r.reciptype, p.email, p.name from messages m join recipients r on m.messageid=r.messageid join people p on r.personid=p.personid limit 10;
 
     +-----------------------------------------------+-----------+------------------------------+-------------------------------------+
