@@ -137,24 +137,57 @@ Get the recipients:
     | <29992592.1075839928142.JavaMail.evans@thyme> | to        | isoclientrelations@caiso.com | ISO Client Relations                |
     | <20631685.1075839928414.JavaMail.evans@thyme> | to        | bill.williams@enron.com      | Bill Williams III                   |
     +-----------------------------------------------+-----------+------------------------------+-------------------------------------+
-  
+
+Run these from the command line to perform the dumps.
+
     [bash]$ mysql -u root -B -e "select m.smtpid as message_id, m.messagedt as date, s.email as from_address, s.name as from_name, m.subject as subject, b.body as body from messages m join people s on m.senderid=s.personid join bodies b on m.messageid=b.messageid;" enron > enron_messages.tsv
+    [bash]$ head enron_messages.tsv
+    
+    message_id	date	from_address	from_name	subject	body
+    <2614099.1075839927264.JavaMail.evans@thyme>	2001-10-31 05:23:56	marketopshourahead@caiso.com	CAISO Market Operations - Hour Ahead	Path 30 mitigation	System Notification: At 0115 PST, WACM terminated request for coordinated\noperation controllable devices for Path 30 USF mitigation.
+<31442247.1075839927371.JavaMail.evans@thyme>	2001-10-31 04:04:37	marketopsrealtimebeep@caiso.com	CAISO Market Operations - Realtime/BEEP	Path 15	Internal path flows are now below limits.  BEEP has been returned to normal\nmode (unsplit operation) as of 0000 hours.  BEEP will dispatch as one zone.\nSent by Market Operations, inquiries please call the Real Time Desk.\n\n\nThe system conditions described in this communication are dynamic and\nsubject to change.  While the ISO has attempted to reflect the most current,\naccurate information available in preparing this notice, system conditions\nmay change suddenly with little or no notice.
     
     [bash]$ mysql -u root -B -e "select m.smtpid, r.reciptype, p.email, p.name from messages m join recipients r on m.messageid=r.messageid join people p on r.personid=p.personid" enron > enron_recipients.tsv
+    [bash]$ head enron_recipients.tsv
+    
+    smtpid	reciptype	email	name
+    <2614099.1075839927264.JavaMail.evans@thyme>	to	mktstathourahead@caiso.com	Market Status: Hour-Ahead/Real-Time
+    <31442247.1075839927371.JavaMail.evans@thyme>	to	mktstathourahead@caiso.com	Market Status: Hour-Ahead/Real-Time
+    <1111763.1075839927587.JavaMail.evans@thyme>	to	mktstathourahead@caiso.com	Market Status: Hour-Ahead/Real-Time
+    <29147324.1075839927746.JavaMail.evans@thyme>	to	mktstathourahead@caiso.com	Market Status: Hour-Ahead/Real-Time
+    <17933220.1075839927790.JavaMail.evans@thyme>	to	mktstathourahead@caiso.com	Market Status: Hour-Ahead/Real-Time
+    <17725708.1075839927988.JavaMail.evans@thyme>	to	mktstathourahead@caiso.com	Market Status: Hour-Ahead/Real-Time
+    <29992592.1075839928142.JavaMail.evans@thyme>	to	20participants@caiso.com	ISO Market Participants
+    <29992592.1075839928142.JavaMail.evans@thyme>	to	isoclientrelations@caiso.com	ISO Client Relations
+    <20631685.1075839928414.JavaMail.evans@thyme>	to	bill.williams@enron.com	Bill Williams III
+
+### ETL (Extract-Transform-Load) with Pig
 
 We can now load our sql dump in Pig. I prefer to use several parameters when I use Pig in local mode. The '-l /tmp' option lets me put my pig logs in /tmp so they don't clutter my working directory. '-x local' tells Pig to run in local mode instead of Hadoop mode. '-v' enables verbose output, and '-w' enables warnings. These last two options are useful for debugging problems when working with a new dataset.
 
     [bash]$ pig -l /tmp -x local -v -w
-    grunt> emails = LOAD 'dump.sql' AS (message_id:chararray, date:chararray, from:chararray, to_cc_bcc:chararray, subject:chararray, body:chararray);
-    grunt> illustrate emails
     
-        -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    | emails     | message_id:chararray                          | date:chararray      | from:chararray          | to_cc_bcc:chararray                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                | subject:chararray    | body:chararray                                                                                                                                                                                                 | 
-    -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    |            | <28471049.1075863303407.JavaMail.evans@thyme> | 2001-08-09 06:51:37 | michael.tully@enron.com | to:pete.davis@enron.com, cc:albert.meyers@enron.com, cc:bill.williams@enron.com, cc:craig.dean@enron.com, cc:geir.solberg@enron.com, cc:john.anderson@enron.com, cc:mark.guzman@enron.com, cc:michael.mier@enron.com, cc:pete.davis@enron.com, cc:ryan.slinger@enron.com, bcc:albert.meyers@enron.com, bcc:bill.williams@enron.com, bcc:craig.dean@enron.com, bcc:geir.solberg@enron.com, bcc:john.anderson@enron.com, bcc:mark.guzman@enron.com, bcc:michael.mier@enron.com, bcc:pete.davis@enron.com, bcc:ryan.slinger@enron.com | File Restoration     | I have already asked Paul about this, but I wanted to send this as kind of a reminder.\nDavid Porter from Real Time would like the following files restored from Tape Backup:\n\nP:\\RealTime\\Increment\\Wind | 
-    -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+    grunt> enron_messages = LOAD '/me/enron-avro/enron_messages.tsv' AS (
+    >> 
+    >>     message_id:chararray,
+    >>     sql_date:chararray,
+    >>     from_address:chararray,
+    >>     from_name:chararray,
+    >>     subject:chararray,
+    >>     body:chararray
+    >> 
+    >>
+    );
+    grunt> describe enron_messages
+    enron_messages: {message_id: chararray,sql_date: chararray,from_address: chararray,from_name: chararray,subject: chararray,body: chararray}
+    grunt> illustrate enron_messages
+     -----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+| enron_messages     | message_id:chararray                          | sql_date:chararray    | from_address:chararray    | from_name:chararray    | subject:chararray                   | body:chararray                                                                                                  | 
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+|                    | <33385450.1075839957796.JavaMail.evans@thyme> | 2002-01-25 12:56:33   | pete.davis@enron.com      | Pete Davis             | Schedule Crawler: HourAhead Failure | \n\nStart Date: 1/25/02; HourAhead hour: 11;  HourAhead schedule download failed. Manual intervention required. | 
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-### 
+    grunt>  
 
 Data Processing with Pig
 ------------------------
