@@ -101,9 +101,44 @@ With our data in Avro format, we'll be able to more easily access email as docum
 
 ### Dumping MySQL
 
-We can run that same query to dump the results as TSV, or "Tab Separated Value." MySQL's mysql client allows us to dump a query as TSV using the -e and -B options. -e 
+We can run that same query to dump the results as TSV, or "Tab Separated Value." MySQL's mysql client allows us to dump a query as TSV using the -e and -B options. -e executes a supplied query, and -B gives tab-delimited output.  For simplicity's sake, we'll dump this data in more than one query.
 
-    [bash]$ mysql -u root -B -e "select m.smtpid as id, m.messagedt as date, s.email as sender, (select group_concat(CONCAT(r.reciptype, ':', p.email) SEPARATOR ', ') from recipients r join people p ON r.personid=p.personid where r.messageid = 511) as to_cc_bcc, m.subject as subject, SUBSTR(b.body, 1, 200) as body from messages m join people s on m.senderid=s.personid join bodies b on m.messageid=b.messageid;" enron > dump.sql 
+  * Get the message and its sender:
+    mysql> select m.smtpid as message_id, m.messagedt as date, s.email as from_address, s.name as from_name, m.subject as subject, b.body as body from messages m join people s on m.senderid=s.personid join bodies b on m.messageid=b.messageid limit 10;
+    
+    +----------------------+---------------------+----------------------+----------------------+----------------------+----------------------+
+    | message_id           | date                | from_address         | from_name            | subject              | body                 |
+    +----------------------+---------------------+----------------------+----------------------+----------------------+----------------------+
+    | <2614099.10758399272 | 2001-10-31 05:23:56 | marketopshourahead@c | CAISO Market Operati | Path 30 mitigation   | System Notification: |
+    | <31442247.1075839927 | 2001-10-31 04:04:37 | marketopsrealtimebee | CAISO Market Operati | Path 15              | Internal path flows  |
+    | <1111763.10758399275 | 2001-10-31 03:33:18 | marketopsrealtimebee | CAISO Market Operati | Path 15              | Path 15 S-N flows ar |
+    | <29147324.1075839927 | 2001-10-31 01:51:22 | marketopshourahead@c | CAISO Market Operati | Unscheduled Flow Pro | Market Message: At 2 |
+    | <17933220.1075839927 | 2001-10-30 23:07:04 | marketopsrealtimebee | CAISO Market Operati | Expost pricing on OA | Beginning HE20, the  |
+    | <17725708.1075839927 | 2001-10-30 22:43:37 | marketopsrealtimebee | CAISO Market Operati | Incorrect prices on  | Starting HE19 the IS |
+    | <29992592.1075839928 | 2001-10-30 21:03:49 | crcommunications@cai | CRCommunications     | CAISO NOTICE:  Data  | To Market Participan |
+    | <20631685.1075839928 | 2001-07-02 18:00:58 | kalmeida@caiso.com   | Keoni" "Almeida      | FW: CAISO Notice: Up | The price is still 9 |
+    +----------------------+---------------------+----------------------+----------------------+----------------------+----------------------+
+    
+  * Get the recipients:
+    select m.smtpid, r.reciptype, p.email, p.name from messages m join recipients r on m.messageid=r.messageid join people p on r.personid=p.personid limit 10;
+    
+    +-----------------------------------------------+-----------+------------------------------+-------------------------------------+
+    | smtpid                                        | reciptype | email                        | name                                |
+    +-----------------------------------------------+-----------+------------------------------+-------------------------------------+
+    | <2614099.1075839927264.JavaMail.evans@thyme>  | to        | mktstathourahead@caiso.com   | Market Status: Hour-Ahead/Real-Time |
+    | <31442247.1075839927371.JavaMail.evans@thyme> | to        | mktstathourahead@caiso.com   | Market Status: Hour-Ahead/Real-Time |
+    | <1111763.1075839927587.JavaMail.evans@thyme>  | to        | mktstathourahead@caiso.com   | Market Status: Hour-Ahead/Real-Time |
+    | <29147324.1075839927746.JavaMail.evans@thyme> | to        | mktstathourahead@caiso.com   | Market Status: Hour-Ahead/Real-Time |
+    | <17933220.1075839927790.JavaMail.evans@thyme> | to        | mktstathourahead@caiso.com   | Market Status: Hour-Ahead/Real-Time |
+    | <17725708.1075839927988.JavaMail.evans@thyme> | to        | mktstathourahead@caiso.com   | Market Status: Hour-Ahead/Real-Time |
+    | <29992592.1075839928142.JavaMail.evans@thyme> | to        | 20participants@caiso.com     | ISO Market Participants             |
+    | <29992592.1075839928142.JavaMail.evans@thyme> | to        | isoclientrelations@caiso.com | ISO Client Relations                |
+    | <20631685.1075839928414.JavaMail.evans@thyme> | to        | bill.williams@enron.com      | Bill Williams III                   |
+    +-----------------------------------------------+-----------+------------------------------+-------------------------------------+
+  
+    [bash]$ mysql -u root -B -e "select m.smtpid as message_id, m.messagedt as date, s.email as from_address, s.name as from_name, m.subject as subject, b.body as body from messages m join people s on m.senderid=s.personid join bodies b on m.messageid=b.messageid;" enron > enron_messages.tsv
+    
+    [bash]$ mysql -u root -B -e "select m.smtpid, r.reciptype, p.email, p.name from messages m join recipients r on m.messageid=r.messageid join people p on r.personid=p.personid" enron > enron_recipients.tsv
 
 We can now load our sql dump in Pig. I prefer to use several parameters when I use Pig in local mode. The '-l /tmp' option lets me put my pig logs in /tmp so they don't clutter my working directory. '-x local' tells Pig to run in local mode instead of Hadoop mode. '-v' enables verbose output, and '-w' enables warnings. These last two options are useful for debugging problems when working with a new dataset.
 
@@ -116,6 +151,8 @@ We can now load our sql dump in Pig. I prefer to use several parameters when I u
     -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
     |            | <28471049.1075863303407.JavaMail.evans@thyme> | 2001-08-09 06:51:37 | michael.tully@enron.com | to:pete.davis@enron.com, cc:albert.meyers@enron.com, cc:bill.williams@enron.com, cc:craig.dean@enron.com, cc:geir.solberg@enron.com, cc:john.anderson@enron.com, cc:mark.guzman@enron.com, cc:michael.mier@enron.com, cc:pete.davis@enron.com, cc:ryan.slinger@enron.com, bcc:albert.meyers@enron.com, bcc:bill.williams@enron.com, bcc:craig.dean@enron.com, bcc:geir.solberg@enron.com, bcc:john.anderson@enron.com, bcc:mark.guzman@enron.com, bcc:michael.mier@enron.com, bcc:pete.davis@enron.com, bcc:ryan.slinger@enron.com | File Restoration     | I have already asked Paul about this, but I wanted to send this as kind of a reminder.\nDavid Porter from Real Time would like the following files restored from Tape Backup:\n\nP:\\RealTime\\Increment\\Wind | 
     -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+### 
 
 Data Processing with Pig
 ------------------------
