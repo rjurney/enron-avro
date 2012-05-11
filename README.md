@@ -16,9 +16,9 @@ We hope that this dataset can become a sort of common set for examples and quest
 
 More information about the Enron Emails is available:
 
-    * [Document Classification on Enron Email Dataset](http://people.cs.umass.edu/~ronb/enron_dataset.html)
-    * [Enron Scandal on Wikipedia](http://en.wikipedia.org/wiki/Enron_scandal)
-    * [UC Berkeley Enron Email Analysis](http://bailando.sims.berkeley.edu/enron_email.html)
+* [Document Classification on Enron Email Dataset](http://people.cs.umass.edu/~ronb/enron_dataset.html)
+* [Enron Scandal on Wikipedia](http://en.wikipedia.org/wiki/Enron_scandal)
+* [UC Berkeley Enron Email Analysis](http://bailando.sims.berkeley.edu/enron_email.html)
 
 Setting up the Enron Database
 -----------------------------
@@ -103,7 +103,7 @@ With our data in Avro format, we'll be able to more easily access email as docum
 
 Now that we're comfortable with our data, lets query it for export.
 
-1) Get the message and its sender:
+1) Get the emails and their senders:
 
     mysql> select m.smtpid as message_id, m.messagedt as date, s.email as from_address, s.name as from_name, m.subject as subject, b.body as body from messages m join people s on m.senderid=s.personid join bodies b on m.messageid=b.messageid limit 10;
 
@@ -120,7 +120,7 @@ Now that we're comfortable with our data, lets query it for export.
     | <20631685.1075839928 | 2001-07-02 18:00:58 | kalmeida@caiso.com   | Keoni" "Almeida      | FW: CAISO Notice: Up | The price is still 9 |
     +----------------------+---------------------+----------------------+----------------------+----------------------+----------------------+
 
-2) Get the recipients:
+2) Get the recipients of those emails, be it to/cc/bcc:
 
     select m.smtpid, r.reciptype, p.email, p.name from messages m join recipients r on m.messageid=r.messageid join people p on r.personid=p.personid limit 10;
 
