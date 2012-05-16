@@ -8,9 +8,9 @@ The Berkeley Enron Emails
 
 ### Introduction
 
-Email is a rich source of information for analysis by many means. During the investigation of the Enron scandal of 2001, 517,431 messages from 114 inboxes of key Enron executives were collected. These emails were published and have become a common dataset for academics to analyze document collections and social networks. Andrew Fiore and Jeff Heer at UC Berkeley have cleaned this email set and provided it as a MySQL archive. 
-
 In this project we will convert this MySQL database of Enron emails into Avro format for analysis on Hadoop with Pig.
+
+Email is a rich source of information for analysis by many means. During the investigation of the Enron scandal of 2001, 517,431 messages from 114 inboxes of key Enron executives were collected. These emails were published and have become a common dataset for academics to analyze document collections and social networks. Andrew Fiore and Jeff Heer at UC Berkeley have cleaned this email set and provided it as a MySQL archive. 
 
 We hope that this dataset can become a sort of common set for examples and questions, as anonymizing one's own data in public forums can make asking questions and getting authoritative answers tricky.
 
@@ -72,7 +72,7 @@ As we can see, this data is highly structured.
     +-----------+----------------------------------------------+---------------------+-----------+----------+--------------------+
     1 row in set (0.01 sec)
     
-Querying a single email to return it as a document we might see in our inbox is complex. And yet this is precisely the format that is most convenient for analysis. This is the limitation of highly structured, relational data. elect a single email as we might view it in raw format.
+Querying a single email to return it as a document we might see in our inbox is complex. And yet this is precisely the format that is most convenient for analysis. This is the limitation of highly structured, relational data. Lets select a single email as we might view it in raw format.
 
     mysql> select m.smtpid as id, 
            m.messagedt as date, 
@@ -95,9 +95,8 @@ Querying a single email to return it as a document we might see in our inbox is 
     Start Date: 2/2/02; HourAhead hour: 11;  HourAhead schedule download failed. Manual intervention required. |
     +-----------------------------------------------+---------------------+----------------------+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+-------------------------------------+--------------------------------------------------------------------------------------------------------------+
     1 row in set (0.04 sec)
-    
 
-With our data in Avro format, we'll be able to more easily access email as documents to analyze both their structured and unstructured components with whatever tools we prefer.
+This is painful, to say the least.  In contrast, with our data in Avro encoded document format, we'll be able to more easily access email to analyze both their structured and unstructured components with whatever tools we prefer.
 
 ### Dumping MySQL to Tab-Delimited 
 
@@ -182,11 +181,10 @@ We can now load our sql dump in Pig. I prefer to use several parameters when I u
     grunt> describe enron_messages
     enron_messages: {message_id: chararray,sql_date: chararray,from_address: chararray,from_name: chararray,subject: chararray,body: chararray}
     grunt> illustrate enron_messages
-     -----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-| enron_messages     | message_id:chararray                          | sql_date:chararray    | from_address:chararray    | from_name:chararray    | subject:chararray                   | body:chararray                                                                                                  | 
------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-|                    | <33385450.1075839957796.JavaMail.evans@thyme> | 2002-01-25 12:56:33   | pete.davis@enron.com      | Pete Davis             | Schedule Crawler: HourAhead Failure | \n\nStart Date: 1/25/02; HourAhead hour: 11;  HourAhead schedule download failed. Manual intervention required. | 
------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+     
+    | enron_messages     | message_id:chararray                          | sql_date:chararray    | from_address:chararray    | from_name:chararray    | subject:chararray                   | body:chararray                                                                                                  | 
+
+    |                    | <33385450.1075839957796.JavaMail.evans@thyme> | 2002-01-25 12:56:33   | pete.davis@enron.com      | Pete Davis             | Schedule Crawler: HourAhead Failure | \n\nStart Date: 1/25/02; HourAhead hour: 11;  HourAhead schedule download failed. Manual intervention required. | 
 
     grunt>  
 
