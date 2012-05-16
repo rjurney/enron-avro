@@ -11,7 +11,7 @@ define CustomFormatToISO org.apache.pig.piggybank.evaluation.datetime.convert.Cu
 define AvroStorage org.apache.pig.piggybank.storage.avro.AvroStorage();
 
 set default_parallel 10
-rmf /tmp/er_test
+rmf /enron/emails.avro
 
 enron_messages = load '/enron/enron_messages.tsv' as (
      message_id:chararray,
@@ -32,11 +32,6 @@ enron_recipients = load '/enron/enron_recipients.tsv' as (
 
 split enron_recipients into tos IF reciptype=='to', ccs IF reciptype=='cc', bccs IF reciptype=='bcc';
 
-/*define strip_header(header) RETURNS clean {
-    stripped = foreach $header generate message_id, address, name;
-    $clean = foreach (group stripped by message_id) generate group as message_id, stripped.(address, name) as $header;
-};*/
-
 headers = cogroup tos by message_id, ccs by message_id, bccs by message_id;
 with_headers = join headers by group, enron_messages by message_id;
 emails = foreach with_headers generate enron_messages::message_id as message_id, 
@@ -49,4 +44,4 @@ emails = foreach with_headers generate enron_messages::message_id as message_id,
                                   headers::ccs.(address, name) as ccs,
                                   headers::bccs.(address, name) as bccs;
                                   
-store emails into '/tmp/er_test' using AvroStorage();
+store emails into '/enron/emails.avro' using AvroStorage();

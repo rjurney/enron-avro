@@ -198,26 +198,72 @@ If Perl is the duct tape of the internet, then Pig is the duct tape of Big Data(
 
 Now we've got our data in document format in Pig, with a schema. Lets save our data in Avro format to persist this schema. To do so, we need to register the jars that Avro needs, as well as Piggybank for the AvroStorage UDF itself. We'll also define a short form of the AvroStorage command, as the fully qualified name is java-long.
 
-    grunt> /* Piggybank */
-    grunt> register /me/pig/contrib/piggybank/java/piggybank.jar
-    grunt> 
-    grunt> /* Load Avro jars and define shortcut */
-    grunt> register /me/pig/build/ivy/lib/Pig/avro-1.5.3.jar
-    grunt> register /me/pig/build/ivy/lib/Pig/json-simple-1.1.jar
-    grunt> register /me/pig/build/ivy/lib/Pig/jackson-core-asl-1.7.3.jar
-    grunt> register /me/pig/build/ivy/lib/Pig/jackson-mapper-asl-1.7.3.jar
-    grunt> register /me/pig/build/ivy/lib/Pig/joda-time-1.6.jar
-    grunt> 
-    grunt> define AvroStorage org.apache.pig.piggybank.storage.avro.AvroStorage();
-    grunt> STORE emails INTO '/tmp/enron' USING AvroStorage();
+    /* Piggybank has useful utilities, like CustomFormatToISO and AvroStorage
+    register /me/pig/contrib/piggybank/java/piggybank.jar
+    
+    /* Avro and datetime dependencies */
+    register /me/pig/build/ivy/lib/Pig/avro-1.5.3.jar
+    register /me/pig/build/ivy/lib/Pig/json-simple-1.1.jar
+    register /me/pig/contrib/piggybank/java/piggybank.jar
+    register /me/pig/build/ivy/lib/Pig/jackson-core-asl-1.7.3.jar
+    register /me/pig/build/ivy/lib/Pig/jackson-mapper-asl-1.7.3.jar
+    register /me/pig/build/ivy/lib/Pig/joda-time-1.6.jar
+    
+    /* Define short form versions of the java-long names */
+    define CustomFormatToISO org.apache.pig.piggybank.evaluation.datetime.convert.CustomFormatToISO();
+    define AvroStorage org.apache.pig.piggybank.storage.avro.AvroStorage();
+    
+    /* Default to 10 reducers and remove any previous results from our path */
+    set default_parallel 10
+    rmf /enron/emails.avro
+    
+    /* Enron messages contain from data, but not recipients */
+    enron_messages = load '/enron/enron_messages.tsv' as (
+         message_id:chararray,
+         sql_date:chararray,
+         from_address:chararray,
+         from_name:chararray,
+         subject:chararray,
+         body:chararray
+    );
+    
+    /* Recipients are lumped into a single table with different types */
+    enron_recipients = load '/enron/enron_recipients.tsv' as (
+        message_id:chararray,
+        reciptype:chararray,
+        address:chararray,
+        name:chararray
+    );
+    
+    /* Split the recipients into different relations based on their type */
+    split enron_recipients into tos IF reciptype=='to', ccs IF reciptype=='cc', bccs IF reciptype=='bcc';
+    
+    /* COGROUP lets us group together all kinds of recipients - whether they are present for a given message_id or not */
+    headers = cogroup tos by message_id, ccs by message_id, bccs by message_id;
+    
+    /* Now we join the recipient headers back to the messages, giving us complete documents.  
+       Note, we also format the datetime from Unix time to ISO time, for processing with Pig's DateTime utilities. */
+    with_headers = join headers by group, enron_messages by message_id;
+    emails = foreach with_headers generate enron_messages::message_id as message_id, 
+                                      CustomFormatToISO(enron_messages::sql_date, 'yyyy-MM-dd HH:mm:ss') as datetime,
+                                      enron_messages::from_address as from_address,
+                                      enron_messages::from_name as from_name,
+                                      enron_messages::subject as subject,
+                                      enron_messages::body as body,
+                                      headers::tos.(address, name) as tos,
+                                      headers::ccs.(address, name) as ccs,
+                                      headers::bccs.(address, name) as bccs;
+                                  
+    store emails into '/enron/emails.avro' using AvroStorage();
+
 
 Pig generates as many segments as there are mappers. In this case, 0-6 or 7 mappers.
 
-    [bash]$ ls /tmp/enron/
+    [bash]$ ls /enron/emails.avro
 
-    part-m-00001.avro       part-m-00004.avro       
-    part-m-00002.avro       part-m-00005.avro       
-    part-m-00000.avro       part-m-00003.avro       part-m-00006.avro
+    part-m-00001.avro       part-m-00004.avro       part-m-00006.avro       part-m-00009.avro
+    part-m-00002.avro       part-m-00005.avro       part-m-00007.avro
+    part-m-00000.avro       part-m-00003.avro       part-m-00008.avro
 
 ### Cat Avro
 
@@ -238,18 +284,24 @@ The script uses the Python Avro library, and is pretty simple:
       else:
         pp.pprint(record)
 
-    [bash]$ cat_avro /tmp/enron/part-m-00001.avro
+    [bash]$ cat_avro /enron/emails.avro/part-m-00001.avro
     
     ...
     
-    {u'body': u'Please use contract .2774,  acitivity 852981, for the NYPA volumes we \\ndiscussed.\\n\\nAlso, let me know what the exact volume is after you do the allocation.',
-     u'date': u'2001-03-02 01:12:00',
-     u'from': u'chris.germany@enron.com',
-     u'message_id': u'<22603533.1075853865696.JavaMail.evans@thyme>',
-     u'subject': u'NYPA for Feb',
-     u'to_cc_bcc': u'to:pete.davis@enron.com, cc:albert.meyers@enron.com, cc:bill.williams@enron.com, cc:craig.dean@enron.com, cc:geir.solberg@enron.com, cc:john.anderson@enron.com, cc:mark.guzman@enron.com, cc:michael.mier@enron.com, cc:pete.davis@enron.com, cc:ryan.slinger@enron.com, bcc:albert.meyers@enron.com, bcc:bill.williams@enron.com, bcc:craig.dean@enron.com, bcc:geir.solberg@enron.com, bcc:john.anderson@enron.com, bcc:mark.guzman@enron.com, bcc:michael.mier@enron.com, bcc:pete.davis@enron.com, bcc:ryan.slinger@enron.com'}
-
-    Avro Schema: {"fields": [{"doc": "autogenerated from Pig Field Schema", "type": ["null", "string"], "name": "message_id"}, {"doc": "autogenerated from Pig Field Schema", "type": ["null", "string"], "name": "date"}, {"doc": "autogenerated from Pig Field Schema", "type": ["null", "string"], "name": "from"}, {"doc": "autogenerated from Pig Field Schema", "type": ["null", "string"], "name": "to_cc_bcc"}, {"doc": "autogenerated from Pig Field Schema", "type": ["null", "string"], "name": "subject"}, {"doc": "autogenerated from Pig Field Schema", "type": ["null", "string"], "name": "body"}], "type": "record", "name": "TUPLE_0"}
+    {u'bccs': [],
+     u'body': u'Does anyone have a template form of letter that we can circulate to the legal group to deal with the adequate assurance requests that seem to be coming in more frequently?\\n\\nCarol St. Clair\\nEB 4539\\n713-853-3989 (phone)\\n713-646-8537 (fax)\\n281-382-1943 (cell phone)\\n8774545506 (pager)\\n281-890-8862 (home fax)\\ncarol.st.clair@enron.com',
+     u'ccs': [],
+     u'datetime': u'2001-11-05T08:56:39.000Z',
+     u'from_address': u'carol.st.@enron.com',
+     u'from_name': u'Carol St. Clair',
+     u'message_id': u'<312437.1075861584646.JavaMail.evans@thyme>',
+     u'orig_date': u'2001-11-05 08:56:39',
+     u'subject': u'Adequate Assurance Letter',
+     u'tos': [{u'address': u'andrew.edison@enron.com', u'name': u'Andrew Edison'},
+              {u'address': u'a..robison@enron.com', u'name': None},
+              {u'address': u't..hodge@enron.com', u'name': u'Jeffrey T. Hodge'},
+              {u'address': u'elizabeth.sager@enron.com',
+               u'name': u'Elizabeth Sager'}]}
 
 The cat_avro utility prints 20 records and then the schema of the records. 
 
@@ -257,17 +309,23 @@ The cat_avro utility prints 20 records and then the schema of the records.
 
 Note that a schema is included with each data file, so that it lives with the data. This is convenient. From now on we don't have to cast our data as we load it like we did before.
 
-    grunt> enron_emails = LOAD '/tmp/enron' USING AvroStorage();
+    grunt> enron_emails = LOAD '/enron/emails.avro' USING AvroStorage();
     grunt> describe enron_emails
-    enron_emails: {message_id: chararray,date: chararray,from: chararray,to_cc_bcc: chararray,subject: chararray,body: chararray}
+    
+    emails: {message_id: chararray,orig_date: chararray,datetime: chararray,from_address: chararray,from_name: chararray,subject: chararray,body: chararray,tos: {ARRAY_ELEM: (address: chararray,name: chararray)},ccs: {ARRAY_ELEM: (address: chararray,name: chararray)},bccs: {ARRAY_ELEM: (address: chararray,name: chararray)}}
+    
+    grunt> illustrate enron_emails
+    
+    ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+    | emails     | message_id:chararray                         | orig_date:chararray    | datetime:chararray       | from_address:chararray    | from_name:chararray                       | subject:chararray     | body:chararray                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | tos:bag{ARRAY_ELEM:tuple(address:chararray,name:chararray)}             | ccs:bag{ARRAY_ELEM:tuple(address:chararray,name:chararray)}             | bccs:bag{ARRAY_ELEM:tuple(address:chararray,name:chararray)}             | 
+    ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+    |            | <8218544.1075844279771.JavaMail.evans@thyme> | 2000-09-05 13:05:00    | 2000-09-05T13:05:00.000Z | david@ddh-pd.com          | DDH Product Design, Inc." "David Hayslett | Family Reunion Photos | Rod,\n\n It was nice to talk to you this evening. It did sound like you\n had a cold. There is no way to protect from going from air\n conditioning to the outside heat/humidity then back into\n the air conditioning. Just try to get some rest and we'll think positive\n for some cooler weather for you.\n\n Attached pls. find the photos I spoke of. There were 30 of them and I\nnarrowed them to the family I could name. I'll write more later.\n It would be great if you all came out around the holidays!\n Love,\n\n Dave........... \n - Family_Reunion_2000.zip\n | {(hayslettr@yahoo.com, )}                                               | {(rod.hayslett@enron.com, )}                                            | {(rod.hayslett@enron.com, )}                                             | 
+    ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-### Extracting Structure with Pig
+### Conclusion
 
-Now we're ready to process and manipulate our data however we want, from a document perspective that makes sense. Lets extract a little more structure from the data to enable some fun analysis.
+We've seen how Pig can be used to take SQL data and convert it to well formed document data with Avro.
 
-    /* Extract separate to/cc/bcc fields from to_cc_bcc */
-    grunt> enron_emails = LOAD '/tmp/enron' USING AvroStorage();
-    grunt>
 
 
 
