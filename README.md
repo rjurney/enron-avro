@@ -170,15 +170,14 @@ We can now load our sql dump in Pig. I prefer to use several parameters when I u
     [bash]$ pig -l /tmp -x local -v -w
     
     grunt> enron_messages = LOAD '/me/enron-avro/enron_messages.tsv' AS (
-    >> 
-    >>     message_id:chararray,
-    >>     sql_date:chararray,
-    >>     from_address:chararray,
-    >>     from_name:chararray,
-    >>     subject:chararray,
-    >>     body:chararray
-    >> 
-    >>
+     
+         message_id:chararray,
+         sql_date:chararray,
+         from_address:chararray,
+         from_name:chararray,
+         subject:chararray,
+         body:chararray
+      
     );
     grunt> describe enron_messages
     enron_messages: {message_id: chararray,sql_date: chararray,from_address: chararray,from_name: chararray,subject: chararray,body: chararray}
