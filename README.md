@@ -96,7 +96,7 @@ Querying a single email to return it as a document we might see in our inbox is 
     +-----------------------------------------------+---------------------+----------------------+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+-------------------------------------+--------------------------------------------------------------------------------------------------------------+
     1 row in set (0.04 sec)
 
-This is painful, to say the least.  In contrast, with our data in Avro encoded document format, we'll be able to more easily access email to analyze both their structured and unstructured components with whatever tools we prefer.
+This is painful, to say the least.  In contrast, with our data in Avro encoded document format, we'll be able to more easily access these emails to analyze both their structured and unstructured components with whatever tools we prefer.
 
 ### Dumping MySQL to Tab-Delimited 
 
@@ -181,10 +181,11 @@ We can now load our sql dump in Pig. I prefer to use several parameters when I u
     grunt> describe enron_messages
     enron_messages: {message_id: chararray,sql_date: chararray,from_address: chararray,from_name: chararray,subject: chararray,body: chararray}
     grunt> illustrate enron_messages
-     
-    | enron_messages     | message_id:chararray                          | sql_date:chararray    | from_address:chararray    | from_name:chararray    | subject:chararray                   | body:chararray                                                                                                  | 
-
-    |                    | <33385450.1075839957796.JavaMail.evans@thyme> | 2002-01-25 12:56:33   | pete.davis@enron.com      | Pete Davis             | Schedule Crawler: HourAhead Failure | \n\nStart Date: 1/25/02; HourAhead hour: 11;  HourAhead schedule download failed. Manual intervention required. | 
+     -----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+| enron_messages     | message_id:chararray                          | sql_date:chararray    | from_address:chararray    | from_name:chararray    | subject:chararray                   | body:chararray                                                                                                  | 
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+|                    | <33385450.1075839957796.JavaMail.evans@thyme> | 2002-01-25 12:56:33   | pete.davis@enron.com      | Pete Davis             | Schedule Crawler: HourAhead Failure | \n\nStart Date: 1/25/02; HourAhead hour: 11;  HourAhead schedule download failed. Manual intervention required. | 
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
     grunt>  
 
