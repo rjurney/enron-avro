@@ -2,13 +2,12 @@ register /me/pig/contrib/piggybank/java/piggybank.jar
 
 register /me/pig/build/ivy/lib/Pig/avro-1.5.3.jar
 register /me/pig/build/ivy/lib/Pig/json-simple-1.1.jar
-register /me/pig/contrib/piggybank/java/piggybank.jar
 register /me/pig/build/ivy/lib/Pig/jackson-core-asl-1.7.3.jar
 register /me/pig/build/ivy/lib/Pig/jackson-mapper-asl-1.7.3.jar
 register /me/pig/build/ivy/lib/Pig/joda-time-1.6.jar
 
-define CustomFormatToISO org.apache.pig.piggybank.evaluation.datetime.convert.CustomFormatToISO();
 define AvroStorage org.apache.pig.piggybank.storage.avro.AvroStorage();
+define CustomFormatToISO org.apache.pig.piggybank.evaluation.datetime.convert.CustomFormatToISO();
 
 set default_parallel 10
 rmf /enron/emails.avro
@@ -21,7 +20,6 @@ enron_messages = load '/enron/enron_messages.tsv' as (
      subject:chararray,
      body:chararray
 );
-enron_messages = sample enron_messages 0.01;
 
 enron_recipients = load '/enron/enron_recipients.tsv' as (
     message_id:chararray,

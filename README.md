@@ -1,3 +1,8 @@
+Series Introduction: The Data Lifecycle
+=======================================
+
+In a series of blog posts, we're going to explore the full lifecycle of data in the enterprise: Introducing new data sources to the Hadoop filesystem via ETL, processing this data with Pig and Python to expose new and interesting properties, consuming this data as an analyst in HIVE, and discovering and accessing these resources using HCatalog and Templeton.
+
 Using Pig, Hadoop, Sqoop and Avro to Mine the Enron Emails
 ==========================================================
 
