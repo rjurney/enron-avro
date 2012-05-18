@@ -31,7 +31,7 @@ enron_recipients = load '/enron/enron_recipients.tsv' as (
 
 split enron_recipients into tos IF reciptype=='to', ccs IF reciptype=='cc', bccs IF reciptype=='bcc';
 
-headers = cogroup tos by message_id, ccs by message_id, bccs by message_id;
+headers = cogroup tos by message_id, ccs by message_id, bccs by message_id parallel 10;
 with_headers = join headers by group, enron_messages by message_id parallel 10;
 emails = foreach with_headers generate enron_messages::message_id as message_id, 
                                   CustomFormatToISO(enron_messages::sql_date, 'yyyy-MM-dd HH:mm:ss') as date,

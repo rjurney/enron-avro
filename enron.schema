@@ -26,7 +26,7 @@
                 {
                     "name":"address",
                     "type":["null","string"],
-                    "doc":"ex: bob.robets@foobar.com"
+                    "doc":"ex: bob.roberts@foobar.com"
                 }
             ]
         },
