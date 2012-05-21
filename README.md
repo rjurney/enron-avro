@@ -301,5 +301,5 @@ Note that a schema is included with each data file, so that it lives with the da
 
 ### Conclusion
 
-We've seen how Pig can be used to take SQL data and convert it to well formed document data with Avro.  The Berkeley Enron emails are available at [here](https://s3.amazonaws.com/rjurney_public_web/hadoop/enron.avro).
+We've seen how Pig can be used to take SQL data and convert it to well formed document data with Avro.  The Berkeley Enron emails are available in Avro document format [here](https://s3.amazonaws.com/rjurney_public_web/hadoop/enron.avro).
 
