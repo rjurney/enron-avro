@@ -1,8 +1,3 @@
-Series Introduction: The Data Lifecycle
-=======================================
-
-In a series of blog posts, we're going to explore the full lifecycle of data in the enterprise: Introducing new data sources to the Hadoop filesystem via ETL, processing this data with Pig and Python to expose new and interesting properties, consuming this data as an analyst in HIVE, and discovering and accessing these resources using HCatalog and Templeton.
-
 Using Pig, Hadoop, Sqoop and Avro to Mine the Enron Emails
 ==========================================================
 
@@ -203,26 +198,19 @@ If Perl is the duct tape of the internet, then Pig is the duct tape of Big Data(
 
 Now we've got our data in document format in Pig, with a schema. Lets save our data in Avro format to persist this schema. To do so, we need to register the jars that Avro needs, as well as Piggybank for the AvroStorage UDF itself. We'll also define a short form of the AvroStorage command, as the fully qualified name is java-long.
 
-    /* Piggybank has useful utilities, like CustomFormatToISO and AvroStorage
     register /me/pig/contrib/piggybank/java/piggybank.jar
     
-    /* Avro and datetime dependencies */
     register /me/pig/build/ivy/lib/Pig/avro-1.5.3.jar
     register /me/pig/build/ivy/lib/Pig/json-simple-1.1.jar
-    register /me/pig/contrib/piggybank/java/piggybank.jar
-    register /me/pig/build/ivy/lib/Pig/jackson-core-asl-1.7.3.jar
-    register /me/pig/build/ivy/lib/Pig/jackson-mapper-asl-1.7.3.jar
     register /me/pig/build/ivy/lib/Pig/joda-time-1.6.jar
     
-    /* Define short form versions of the java-long names */
-    define CustomFormatToISO org.apache.pig.piggybank.evaluation.datetime.convert.CustomFormatToISO();
     define AvroStorage org.apache.pig.piggybank.storage.avro.AvroStorage();
+    define CustomFormatToISO org.apache.pig.piggybank.evaluation.datetime.convert.CustomFormatToISO();
     
-    /* Default to 10 reducers and remove any previous results from our path */
     set default_parallel 10
+    set aggregate.warning true
     rmf /enron/emails.avro
     
-    /* Enron messages contain from data, but not recipients */
     enron_messages = load '/enron/enron_messages.tsv' as (
          message_id:chararray,
          sql_date:chararray,
@@ -232,7 +220,6 @@ Now we've got our data in document format in Pig, with a schema. Lets save our d
          body:chararray
     );
     
-    /* Recipients are lumped into a single table with different types */
     enron_recipients = load '/enron/enron_recipients.tsv' as (
         message_id:chararray,
         reciptype:chararray,
@@ -240,29 +227,20 @@ Now we've got our data in document format in Pig, with a schema. Lets save our d
         name:chararray
     );
     
-    /* Split the recipients into different relations based on their type */
     split enron_recipients into tos IF reciptype=='to', ccs IF reciptype=='cc', bccs IF reciptype=='bcc';
     
-    /* COGROUP lets us group together all kinds of recipients - whether they are present for a given message_id or not */
-    headers = cogroup tos by message_id, ccs by message_id, bccs by message_id;
-    
-    /* Now we join the recipient headers back to the messages, giving us complete documents.  
-       Note, we also format the datetime from Unix time to ISO time, for processing with Pig's DateTime utilities. */
-    with_headers = join headers by group, enron_messages by message_id;
+    headers = cogroup tos by message_id, ccs by message_id, bccs by message_id parallel 10;
+    with_headers = join headers by group, enron_messages by message_id parallel 10;
     emails = foreach with_headers generate enron_messages::message_id as message_id, 
-                                      CustomFormatToISO(enron_messages::sql_date, 'yyyy-MM-dd HH:mm:ss') as datetime,
-                                      enron_messages::from_address as from_address,
-                                      enron_messages::from_name as from_name,
+                                      CustomFormatToISO(enron_messages::sql_date, 'yyyy-MM-dd HH:mm:ss') as date,
+                                      TOTUPLE(enron_messages::from_address, enron_messages::from_name) as from:tuple(address:chararray, name:chararray),
                                       enron_messages::subject as subject,
                                       enron_messages::body as body,
                                       headers::tos.(address, name) as tos,
                                       headers::ccs.(address, name) as ccs,
                                       headers::bccs.(address, name) as bccs;
-                                  
-    store emails into '/enron/emails.avro' using AvroStorage();
-
-
-Pig generates as many segments as there are mappers. In this case, 0-6 or 7 mappers.
+    
+    store emails into '/enron/emails.avro' using AvroStorage('{"fields": [{"doc": "", "type": ["null", "string"], "name": "message_id"}, {"type": ["string", "null"], "name": "date"}, {"fields": [{"doc": "", "type": ["null", "string"], "name": "name"}, {"doc": "", "type": ["null", "string"], "name": "address"}], "type": "record", "name": "from"}, {"type": ["string", "null"], "name": "subject"}, {"type": ["string", "null"], "name": "body"}, {"doc": "", "type": ["null", {"items": ["null", {"fields": [{"doc": "", "type": ["null", "string"], "name": "name"}, {"doc": "", "type": ["null", "string"], "name": "address"}], "type": "record", "name": "to"}], "type": "array"}], "name": "tos"}, {"doc": "", "type": ["null", {"items": ["null", {"fields": [{"doc": "", "type": ["null", "string"], "name": "name"}, {"doc": "", "type": ["null", "string"], "name": "address"}], "type": "record", "name": "cc"}], "type": "array"}], "name": "ccs"}, {"doc": "", "type": ["null", {"items": ["null", {"fields": [{"doc": "", "type": ["null", "string"], "name": "name"}, {"doc": "", "type": ["null", "string"], "name": "address"}], "type": "record", "name": "bcc"}], "type": "array"}], "name": "bccs"}], "type": "record", "name": "Email"}');
 
     [bash]$ ls /enron/emails.avro
 
@@ -294,19 +272,13 @@ The script uses the Python Avro library, and is pretty simple:
     ...
     
     {u'bccs': [],
-     u'body': u'Does anyone have a template form of letter that we can circulate to the legal group to deal with the adequate assurance requests that seem to be coming in more frequently?\\n\\nCarol St. Clair\\nEB 4539\\n713-853-3989 (phone)\\n713-646-8537 (fax)\\n281-382-1943 (cell phone)\\n8774545506 (pager)\\n281-890-8862 (home fax)\\ncarol.st.clair@enron.com',
+     u'body': u'Where is my new Oglethorpe sheet?',
      u'ccs': [],
-     u'datetime': u'2001-11-05T08:56:39.000Z',
-     u'from_address': u'carol.st.@enron.com',
-     u'from_name': u'Carol St. Clair',
-     u'message_id': u'<312437.1075861584646.JavaMail.evans@thyme>',
-     u'orig_date': u'2001-11-05 08:56:39',
-     u'subject': u'Adequate Assurance Letter',
-     u'tos': [{u'address': u'andrew.edison@enron.com', u'name': u'Andrew Edison'},
-              {u'address': u'a..robison@enron.com', u'name': None},
-              {u'address': u't..hodge@enron.com', u'name': u'Jeffrey T. Hodge'},
-              {u'address': u'elizabeth.sager@enron.com',
-               u'name': u'Elizabeth Sager'}]}
+     u'date': u'2001-01-10T07:28:00.000Z',
+     u'from': {u'address': u'chris.germany@enron.com', u'name': u'Chris Germany'},
+     u'message_id': u'<1623.1075853869290.JavaMail.evans@thyme>',
+     u'subject': u'Ogy',
+     u'tos': [{u'address': u'jim.homco@enron.com', u'name': u'Jim Homco'}]}
 
 The cat_avro utility prints 20 records and then the schema of the records. 
 
@@ -317,7 +289,7 @@ Note that a schema is included with each data file, so that it lives with the da
     grunt> enron_emails = LOAD '/enron/emails.avro' USING AvroStorage();
     grunt> describe enron_emails
     
-    emails: {message_id: chararray,orig_date: chararray,datetime: chararray,from_address: chararray,from_name: chararray,subject: chararray,body: chararray,tos: {ARRAY_ELEM: (address: chararray,name: chararray)},ccs: {ARRAY_ELEM: (address: chararray,name: chararray)},bccs: {ARRAY_ELEM: (address: chararray,name: chararray)}}
+    emails: {message_id: chararray,date: chararray,from: (address: chararray,name: chararray),subject: chararray,body: chararray,tos: {ARRAY_ELEM: (address: chararray,name: chararray)},ccs: {ARRAY_ELEM: (address: chararray,name: chararray)},bccs: {ARRAY_ELEM: (address: chararray,name: chararray)}}
     
     grunt> illustrate enron_emails
     
@@ -329,11 +301,5 @@ Note that a schema is included with each data file, so that it lives with the da
 
 ### Conclusion
 
-We've seen how Pig can be used to take SQL data and convert it to well formed document data with Avro.
-
-
-
-
-
-
+We've seen how Pig can be used to take SQL data and convert it to well formed document data with Avro.  The Berkeley Enron emails are available at [here](https://s3.amazonaws.com/rjurney_public_web/hadoop/enron.avro).
 
